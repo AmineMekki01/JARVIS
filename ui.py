@@ -17,7 +17,7 @@ CONFIG_DIR = BASE_DIR / "config"
 API_FILE   = CONFIG_DIR / "api_keys.json"
 
 SYSTEM_NAME = "J.A.R.V.I.S"
-MODEL_BADGE = "MARK XXX"
+MODEL_BADGE = "MARK XXXV"
 
 C_BG     = "#000000"
 C_PRI    = "#00d4ff"
@@ -36,7 +36,7 @@ C_MUTED  = "#ff3366"
 class JarvisUI:
     def __init__(self, face_path, size=None):
         self.root = tk.Tk()
-        self.root.title("J.A.R.V.I.S — MARK XXX")
+        self.root.title("J.A.R.V.I.S — MARK XXXV")
         self.root.resizable(False, False)
 
         sw = self.root.winfo_screenwidth()
@@ -510,7 +510,7 @@ class JarvisUI:
         c.create_text(W - 16, H - 14, fill=C_DIM, font=("Courier", 8),
                       text="[F4] MUTE", anchor="e")
         c.create_text(W // 2, H - 14, fill=C_DIM, font=("Courier", 8),
-                      text="FatihMakes Industries  ·  CLASSIFIED  ·  MARK XXX")
+                      text="FatihMakes Industries  ·  CLASSIFIED  ·  MARK XXXV")
 
     # ── Log ───────────────────────────────────────────────────────────────────
 
