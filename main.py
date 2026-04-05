@@ -5,7 +5,7 @@ import sys
 import traceback
 from pathlib import Path
 
-import pyaudio
+import sounddevice as sd
 from google import genai
 from google.genai import types
 from ui import JarvisUI
@@ -43,13 +43,10 @@ BASE_DIR        = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 PROMPT_PATH     = BASE_DIR / "core" / "prompt.txt"
 LIVE_MODEL          = "models/gemini-2.5-flash-native-audio-preview-12-2025"
-FORMAT              = pyaudio.paInt16
 CHANNELS            = 1
 SEND_SAMPLE_RATE    = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE          = 1024
-
-pya = pyaudio.PyAudio()
 
 
 def _get_api_key() -> str:
@@ -67,6 +64,8 @@ def _load_system_prompt() -> str:
             "Never simulate or guess results — always call the appropriate tool."
         )
 
+
+# ── Hafıza ────────────────────────────────────────────────────────────────────
 _last_memory_input = ""
 
 
@@ -92,6 +91,8 @@ def _update_memory_async(user_text: str, jarvis_text: str) -> None:
         if "429" not in str(e):
             print(f"[Memory] ⚠️ {e}")
 
+
+# ── Tool declarations ─────────────────────────────────────────────────────────
 TOOL_DECLARATIONS = [
     {
         "name": "open_app",
@@ -523,6 +524,7 @@ class JarvisLive:
         print(f"[JARVIS] 🔧 {name}  {args}")
         self.ui.set_state("THINKING")
 
+        # ── save_memory: sessiz, hızlı, Gemini'ye bildirim yok ───────────────
         if name == "save_memory":
             category = args.get("category", "notes")
             key      = args.get("key", "")
@@ -634,6 +636,7 @@ class JarvisLive:
 
         print(f"[JARVIS] 📤 {name} → {str(result)[:80]}")
 
+        # ── Result: tek cümle söyle, dur ──────────────────────────────────────
         return types.FunctionResponse(
             id=fc.id, name=name,
             response={"result": result}
@@ -646,24 +649,32 @@ class JarvisLive:
 
     async def _listen_audio(self):
         print("[JARVIS] 🎤 Mic started")
-        stream = await asyncio.to_thread(
-            pya.open,
-            format=FORMAT, channels=CHANNELS,
-            rate=SEND_SAMPLE_RATE, input=True,
-            frames_per_buffer=CHUNK_SIZE,
-        )
+        loop = asyncio.get_event_loop()
+
+        def callback(indata, frames, time_info, status):
+            with self._speaking_lock:
+                jarvis_speaking = self._is_speaking
+            if not jarvis_speaking and not self.ui.muted:
+                data = indata.tobytes()
+                loop.call_soon_threadsafe(
+                    self.out_queue.put_nowait,
+                    {"data": data, "mime_type": "audio/pcm"}
+                )
+
         try:
-            while True:
-                data = await asyncio.to_thread(stream.read, CHUNK_SIZE, exception_on_overflow=False)
-                with self._speaking_lock:
-                    jarvis_speaking = self._is_speaking
-                if not jarvis_speaking and not self.ui.muted:
-                    await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
+            with sd.InputStream(
+                samplerate=SEND_SAMPLE_RATE,
+                channels=CHANNELS,
+                dtype="int16",
+                blocksize=CHUNK_SIZE,
+                callback=callback,
+            ):
+                print("[JARVIS] 🎤 Mic stream open")
+                while True:
+                    await asyncio.sleep(0.1)
         except Exception as e:
             print(f"[JARVIS] ❌ Mic: {e}")
             raise
-        finally:
-            stream.close()
 
     async def _receive_audio(self):
         print("[JARVIS] 👂 Recv started")
@@ -719,6 +730,7 @@ class JarvisLive:
                         await self.session.send_tool_response(
                             function_responses=fn_responses
                         )
+                        # ── Boş turn YOK — bu "Anladım." sorununu yaratıyordu ──
 
         except Exception as e:
             print(f"[JARVIS] ❌ Recv: {e}")
@@ -727,11 +739,16 @@ class JarvisLive:
 
     async def _play_audio(self):
         print("[JARVIS] 🔊 Play started")
-        stream = await asyncio.to_thread(
-            pya.open,
-            format=FORMAT, channels=CHANNELS,
-            rate=RECEIVE_SAMPLE_RATE, output=True,
+        loop = asyncio.get_event_loop()
+
+        # Sürekli açık output stream — PyAudio'daki stream.write() davranışıyla aynı
+        stream = sd.RawOutputStream(
+            samplerate=RECEIVE_SAMPLE_RATE,
+            channels=CHANNELS,
+            dtype="int16",
+            blocksize=CHUNK_SIZE,
         )
+        stream.start()
         try:
             while True:
                 chunk = await self.audio_in_queue.get()
@@ -742,6 +759,7 @@ class JarvisLive:
             raise
         finally:
             self.set_speaking(False)
+            stream.stop()
             stream.close()
 
     async def run(self):
@@ -783,6 +801,7 @@ class JarvisLive:
             print("[JARVIS] 🔄 Reconnecting in 3s...")
             await asyncio.sleep(3)
 
+
 def main():
     ui = JarvisUI("face.png")
 
@@ -797,5 +816,6 @@ def main():
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
 
+
 if __name__ == "__main__":
-    main() 
+    main()
