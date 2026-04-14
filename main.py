@@ -65,7 +65,7 @@ def _load_system_prompt() -> str:
         )
 
 
-# ── Hafıza ────────────────────────────────────────────────────────────────────
+# ── Memory ────────────────────────────────────────────────────────────────────
 _last_memory_input = ""
 
 
@@ -97,7 +97,7 @@ TOOL_DECLARATIONS = [
     {
         "name": "open_app",
         "description": (
-            "Opens any application on the Windows computer. "
+            "Opens any application on the computer. "
             "Use this whenever the user asks to open, launch, or start any app, "
             "website, or program. Always call this tool — never just say you opened it."
         ),
@@ -152,7 +152,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "reminder",
-        "description": "Sets a timed reminder using Windows Task Scheduler.",
+        "description": "Sets a timed reminder using the system's scheduler (Windows Task Scheduler or macOS launchd).",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -166,7 +166,7 @@ TOOL_DECLARATIONS = [
     {
         "name": "youtube_video",
         "description": (
-            "Controls YouTube. Use for: playing videos, summarizing a video's content, "
+            "Controls YouTube in the default browser. Use for: playing videos, summarizing a video's content, "
             "getting video info, or showing trending videos."
         ),
         "parameters": {

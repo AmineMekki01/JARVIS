@@ -40,16 +40,16 @@ try:
 except ImportError:
     _PYPERCLIP = False
 
+_SYSTEM = platform.system()
+_PRIMARY_MODIFIER = "command" if _SYSTEM == "Darwin" else "ctrl"
 
 def get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
 
-
 BASE_DIR        = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
-
 
 def _load_user_profile() -> dict:
     """Load user profile from long_term.json for form filling."""
@@ -68,13 +68,11 @@ def _load_user_profile() -> dict:
         pass
     return {}
 
-
 def _ensure_pyautogui():
     if not _PYAUTOGUI:
         raise RuntimeError(
             "PyAutoGUI not installed. Run: pip install pyautogui"
         )
-
 
 _FIRST_NAMES = [
     "Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Drew", "Quinn",
@@ -85,7 +83,6 @@ _LAST_NAMES = [
     "Davis", "Wilson", "Moore", "Taylor", "Anderson", "Thomas", "Jackson"
 ]
 _DOMAINS = ["gmail.com", "yahoo.com", "outlook.com", "proton.me", "mail.com"]
-
 
 def generate_random_data(data_type: str) -> str:
     """
@@ -148,14 +145,12 @@ def generate_random_data(data_type: str) -> str:
 
     return f"random_{data_type}_{random.randint(1000,9999)}"
 
-
 def _type_text(text: str, interval: float = 0.03) -> str:
     """Types text at the current cursor position."""
     _ensure_pyautogui()
     time.sleep(0.3)
     pyautogui.typewrite(text, interval=interval)
     return f"Typed: {text[:50]}{'...' if len(text) > 50 else ''}"
-
 
 def _click(x: int = None, y: int = None, button: str = "left",
            clicks: int = 1, image: str = None) -> str:
@@ -182,20 +177,21 @@ def _click(x: int = None, y: int = None, button: str = "left",
     pyautogui.click(button=button, clicks=clicks)
     return f"Clicked at current position"
 
-
 def _hotkey(*keys) -> str:
     """Presses a key combination. E.g. hotkey('ctrl', 'c')"""
     _ensure_pyautogui()
     pyautogui.hotkey(*keys)
     return f"Hotkey: {'+'.join(keys)}"
 
+def _primary_hotkey(*keys) -> str:
+    """Presses a platform-aware shortcut using the primary modifier key."""
+    return _hotkey(_PRIMARY_MODIFIER, *keys)
 
 def _press(key: str) -> str:
     """Presses a single key."""
     _ensure_pyautogui()
     pyautogui.press(key)
     return f"Pressed: {key}"
-
 
 def _scroll(direction: str = "down", amount: int = 3) -> str:
     """Scrolls in the specified direction."""
@@ -207,13 +203,11 @@ def _scroll(direction: str = "down", amount: int = 3) -> str:
         pyautogui.hscroll(clicks)
     return f"Scrolled {direction} {amount} times"
 
-
 def _move_mouse(x: int, y: int, duration: float = 0.3) -> str:
     """Moves mouse to coordinates."""
     _ensure_pyautogui()
     pyautogui.moveTo(x, y, duration=duration)
     return f"Mouse moved to ({x}, {y})"
-
 
 def _drag(x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> str:
     """Drags from (x1,y1) to (x2,y2)."""
@@ -222,25 +216,22 @@ def _drag(x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> str:
     pyautogui.dragTo(x2, y2, duration=duration)
     return f"Dragged from ({x1},{y1}) to ({x2},{y2})"
 
-
 def _clipboard_copy() -> str:
     """Gets current clipboard content."""
     if _PYPERCLIP:
         return pyperclip.paste()
-    _hotkey("ctrl", "c")
+    _primary_hotkey("c")
     time.sleep(0.2)
     return "Copied to clipboard"
-
 
 def _clipboard_set(text: str) -> str:
     """Sets clipboard content and pastes it."""
     if _PYPERCLIP:
         pyperclip.copy(text)
         time.sleep(0.1)
-        _hotkey("ctrl", "v")
+        _primary_hotkey("v")
         return f"Pasted: {text[:50]}"
     return "pyperclip not available"
-
 
 def _screenshot(save_path: str = None) -> str:
     """Takes a screenshot."""
@@ -251,12 +242,10 @@ def _screenshot(save_path: str = None) -> str:
     img.save(save_path)
     return f"Screenshot saved: {save_path}"
 
-
 def _wait(seconds: float) -> str:
     """Waits for specified seconds."""
     time.sleep(seconds)
     return f"Waited {seconds}s"
-
 
 def _wait_for_image(image_path: str, timeout: int = 10) -> str:
     """Waits until an image appears on screen (up to timeout seconds)."""
@@ -272,17 +261,15 @@ def _wait_for_image(image_path: str, timeout: int = 10) -> str:
         time.sleep(0.5)
     return f"Image not found within {timeout}s: {image_path}"
 
-
 def _get_screen_size() -> str:
     """Returns current screen resolution."""
     _ensure_pyautogui()
     w, h = pyautogui.size()
     return f"{w}x{h}"
 
-
 def _focus_window(title: str) -> str:
-    """Brings a window to focus by title (Windows)."""
-    if platform.system() == "Windows":
+    """Brings a window to focus by title."""
+    if _SYSTEM == "Windows":
         try:
             script = f'(New-Object -ComObject WScript.Shell).AppActivate("{title}")'
             subprocess.run(
@@ -293,20 +280,35 @@ def _focus_window(title: str) -> str:
             return f"Focused window: {title}"
         except Exception as e:
             return f"Could not focus window: {e}"
-    return "Window focus only supported on Windows"
-
+    if _SYSTEM == "Darwin":
+        try:
+            script = f'tell application "System Events" to set frontmost of process "{title}" to true'
+            result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                time.sleep(0.3)
+                return f"Focused window: {title}"
+        except Exception:
+            pass
+        try:
+            script = f'tell application "{title}" to activate'
+            result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                time.sleep(0.3)
+                return f"Focused window: {title}"
+        except Exception as e:
+            return f"Could not focus window: {e}"
+        return f"Could not focus window: {title}"
+    return "Window focus support is limited on this OS"
 
 def _select_all() -> str:
-    return _hotkey("ctrl", "a")
-
+    return _primary_hotkey("a")
 
 def _clear_field() -> str:
     """Selects all and deletes — clears an input field."""
-    _hotkey("ctrl", "a")
+    _primary_hotkey("a")
     time.sleep(0.1)
     _press("delete")
     return "Field cleared"
-
 
 def _smart_type(text: str, clear_first: bool = True) -> str:
     """
@@ -323,12 +325,11 @@ def _smart_type(text: str, clear_first: bool = True) -> str:
     if len(text) > 20 and _PYPERCLIP:
         pyperclip.copy(text)
         time.sleep(0.1)
-        pyautogui.hotkey("ctrl", "v")
+        pyautogui.hotkey(_PRIMARY_MODIFIER, "v")
         return f"Smart-typed (clipboard): {text[:50]}"
     else:
         pyautogui.typewrite(text, interval=0.04)
         return f"Smart-typed: {text[:50]}"
-
 
 def _analyze_screen_for_element(description: str) -> tuple[int, int] | None:
     """

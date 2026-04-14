@@ -1,3 +1,4 @@
+# core dependencies (all platforms)
 sounddevice
 google-genai
 google-generativeai
@@ -5,18 +6,19 @@ pillow
 requests
 beautifulsoup4
 duckduckgo-search
-playwright          
+playwright
 pyautogui
 pyperclip
-pygetwindow       
+pygetwindow
 opencv-python
 numpy
 mss
-Pillow
 psutil
-comtypes
-pycaw               
-win10toast          
 send2trash
 youtube-transcript-api
-pywinauto
+
+# windows-only dependencies
+comtypes; sys_platform == 'win32'
+pycaw; sys_platform == 'win32'
+win10toast; sys_platform == 'win32'
+pywinauto; sys_platform == 'win32'
