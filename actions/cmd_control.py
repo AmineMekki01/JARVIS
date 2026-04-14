@@ -2,6 +2,7 @@ import subprocess
 import sys
 import json
 import re
+import platform
 from pathlib import Path
 
 
@@ -9,6 +10,7 @@ def get_base_dir():
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
+
 
 BASE_DIR        = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
@@ -23,6 +25,10 @@ def _get_platform() -> str:
     if sys.platform == "win32":  return "windows"
     if sys.platform == "darwin": return "macos"
     return "linux"
+
+
+_OS_NAME = _get_platform()
+
 
 WIN_COMMAND_MAP = [
     (["disk space", "disk usage", "storage", "free space", "c drive space"],
@@ -57,9 +63,93 @@ WIN_COMMAND_MAP = [
      f'dir "{Path.home() / "Desktop"}"', False),
     (["downloads", "files in downloads"],
      f'dir "{Path.home() / "Downloads"}"', False),
-    (["large files", "biggest files", "largest files"],
+    (['large files', 'biggest files', 'largest files'],
      'powershell "Get-ChildItem C:\\ -Recurse -ErrorAction SilentlyContinue | Sort-Object Length -Descending | Select-Object -First 10 FullName,Length | Format-Table"', False),
 ]
+
+
+MAC_COMMAND_MAP = [
+    (["disk space", "disk usage", "storage", "free space"],
+     "df -h", False),
+    (["running processes", "list processes", "show processes", "active processes"],
+     "ps aux", False),
+    (["ip address", "my ip", "network info"],
+     "ipconfig getifaddr en0", False),
+    (["ping", "internet connection", "connected to internet"],
+     "ping -c 4 google.com", False),
+    (["open ports", "listening ports", "netstat"],
+     "lsof -i -n -P", False),
+    (["wifi networks", "available wifi", "wireless networks"],
+     "airport -s", False),
+    (["system info", "computer info", "hardware info", "pc info", "specs"],
+     "system_profiler", False),
+    (["cpu usage", "processor usage"],
+     "top -l 1 -n 0 -s 0", False),
+    (["memory usage", "ram usage"],
+     "vm_stat", False),
+    (["macos version", "os version"],
+     "sw_vers", False),
+    (["installed programs", "installed software", "installed apps"],
+     "ls /Applications", False),
+    (["battery", "battery level", "power status"],
+     "pmset -g batt", False),
+    (["current time", "what time", "system time"],
+     "date '+%r'", False),
+    (["current date", "what date", "system date"],
+     "date '+%Y-%m-%d'", False),
+    (["desktop files", "files on desktop"],
+     f'ls "{Path.home() / "Desktop"}"', False),
+    (["downloads", "files in downloads"],
+     f'ls "{Path.home() / "Downloads"}"', False),
+    (['large files', 'biggest files', 'largest files'],
+     f'find ~ -type f -size +100M -exec ls -lh \\{{}} \\;', False),
+]
+
+
+LINUX_COMMAND_MAP = [
+    (["disk space", "disk usage", "storage", "free space"],
+     "df -h", False),
+    (["running processes", "list processes", "show processes", "active processes"],
+     "ps aux", False),
+    (["ip address", "my ip", "network info"],
+     "ip addr show", False),
+    (["ping", "internet connection", "connected to internet"],
+     "ping -c 4 google.com", False),
+    (["open ports", "listening ports", "netstat"],
+     "netstat -tlnp", False),
+    (["wifi networks", "available wifi", "wireless networks"],
+     "iwlist wlan0 scan", False),
+    (["system info", "computer info", "hardware info", "pc info", "specs"],
+     "lshw", False),
+    (["cpu usage", "processor usage"],
+     "top -l 1 -n 0 -s 0", False),
+    (["memory usage", "ram usage"],
+     "free -m", False),
+    (["linux version", "os version"],
+     "cat /etc/os-release", False),
+    (["installed programs", "installed software", "installed apps"],
+     "dpkg --list", False),
+    (["battery", "battery level", "power status"],
+     "upower -i /org/freedesktop/UPower/devices/battery_BAT0", False),
+    (["current time", "what time", "system time"],
+     "date '+%r'", False),
+    (["current date", "what date", "system date"],
+     "date '+%Y-%m-%d'", False),
+    (["desktop files", "files on desktop"],
+     f'ls "{Path.home() / "Desktop"}"', False),
+    (["downloads", "files in downloads"],
+     f'ls "{Path.home() / "Downloads"}"', False),
+    (["large files", "biggest files", "largest files"],
+     f'find ~ -type f -size +100M -exec ls -lh \\{{}} \\;', False),
+]
+
+
+COMMAND_MAP = {
+    "windows": WIN_COMMAND_MAP,
+    "macos": MAC_COMMAND_MAP,
+    "linux": LINUX_COMMAND_MAP,
+}
+
 
 def _find_hardcoded(task: str) -> str | None:
     task_lower = task.lower()
@@ -70,19 +160,28 @@ def _find_hardcoded(task: str) -> str | None:
             filename = file_match.group(1)
             desktop  = Path.home() / "Desktop"
             filepath = Path(filename) if Path(filename).is_absolute() else desktop / filename
+            if _OS_NAME == "macos":
+                return f'open -a TextEdit "{filepath}"'
+            if _OS_NAME == "linux":
+                return f'xdg-open "{filepath}"'
             return f'notepad "{filepath}"'
         if "notepad" in task_lower:
+            if _OS_NAME == "macos":
+                return "open -a TextEdit"
+            if _OS_NAME == "linux":
+                return "xdg-open ."
             return "notepad"
     pip_match = re.search(r"install\s+([\w\-]+)", task_lower)
     if pip_match:
         package = pip_match.group(1)
         return f"pip install {package}"
 
-    for keywords, command, _ in WIN_COMMAND_MAP:
+    for keywords, command, _ in COMMAND_MAP[_OS_NAME]:
         if command and any(kw in task_lower for kw in keywords):
             return command
 
     return None
+
 
 BLOCKED_PATTERNS = [
     r"\brm\s+-rf\b", r"\brmdir\s+/s\b", r"\bdel\s+/[fqs]",
@@ -102,6 +201,7 @@ def _is_safe(command: str) -> tuple[bool, str]:
         return False, f"Blocked pattern: '{match.group()}'"
     return True, "OK"
 
+
 def _ask_gemini(task: str) -> str:
     try:
         import google.generativeai as genai
@@ -109,7 +209,8 @@ def _ask_gemini(task: str) -> str:
         model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
         prompt = (
-            f"Convert this request to a single Windows CMD command.\n"
+            f"Convert this request to a single terminal command for the current OS ({_OS_NAME}).\n"
+            f"Use PowerShell/CMD style on Windows, zsh/bash compatible commands on macOS/Linux.\n"
             f"Output ONLY the command. No explanation, no markdown, no backticks.\n"
             f"If unsafe or impossible, output: UNSAFE\n\n"
             f"Request: {task}\n\nCommand:"
@@ -122,6 +223,7 @@ def _ask_gemini(task: str) -> str:
         return command
     except Exception as e:
         return f"ERROR: {e}"
+
 
 def _run_silent(command: str, timeout: int = 20) -> str:
     try:
@@ -172,8 +274,9 @@ def _run_visible(command: str) -> None:
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
         elif platform == "macos":
+            safe_command = command.replace('"', '\\"')
             subprocess.Popen(["osascript", "-e",
-                f'tell application "Terminal" to do script "{command}"'])
+                f'tell application "Terminal" to do script "{safe_command}"'])
         else:
             for term in ["gnome-terminal", "xterm", "konsole"]:
                 try:
@@ -218,7 +321,7 @@ def cmd_control(
     if player:
         player.write_log(f"[CMD] {command[:60]}")
 
-    if any(x in command.lower() for x in ["notepad", "explorer", "start "]):
+    if any(x in command.lower() for x in ["notepad", "explorer", "start ", "open -a", "xdg-open"]):
         subprocess.Popen(command, shell=True)
         return f"Opened: {command}"
 

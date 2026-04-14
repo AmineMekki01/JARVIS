@@ -3,23 +3,23 @@
 # Uses visual element detection (pyautogui + screen search) instead of
 # hardcoded tab/click sequences — works on any screen resolution.
 
+import platform
 import time
 import pyautogui
+from actions.open_app import open_app
 from pathlib import Path
 
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.08
 
+_PRIMARY_MODIFIER = "command" if platform.system() == "Darwin" else "ctrl"
+
+
 def _open_app(app_name: str) -> bool:
-    """Opens an app via Windows search."""
+    """Opens an app using the cross-platform launcher."""
     try:
-        pyautogui.press("win")
-        time.sleep(0.4)
-        pyautogui.write(app_name, interval=0.04)
-        time.sleep(0.5)
-        pyautogui.press("enter")
-        time.sleep(2.0)  
-        return True
+        result = open_app({"app_name": app_name})
+        return not str(result).lower().startswith("failed")
     except Exception as e:
         print(f"[SendMessage] Could not open {app_name}: {e}")
         return False
@@ -31,10 +31,11 @@ def _search_contact(contact: str, platform: str):
     Uses Ctrl+F (universal search shortcut) then types contact name.
     """
     time.sleep(0.5)
-    pyautogui.hotkey("ctrl", "f")
+    pyautogui.hotkey(_PRIMARY_MODIFIER, "f")
     time.sleep(0.4)
-    pyautogui.hotkey("ctrl", "a")
+    pyautogui.hotkey(_PRIMARY_MODIFIER, "a")
     pyautogui.write(contact, interval=0.04)
+
     time.sleep(0.8)
     pyautogui.press("enter")
     time.sleep(0.6)
@@ -44,8 +45,9 @@ def _type_and_send(message: str):
     """Types message and sends it."""
     pyautogui.press("tab")
     time.sleep(0.2)
-    pyautogui.hotkey("ctrl", "a")
+    pyautogui.hotkey(_PRIMARY_MODIFIER, "a")
     pyautogui.write(message, interval=0.03)
+
     time.sleep(0.2)
     pyautogui.press("enter")
     time.sleep(0.3)
@@ -62,10 +64,11 @@ def _send_whatsapp(receiver: str, message: str) -> str:
 
         time.sleep(1.5)
 
-        pyautogui.hotkey("ctrl", "f")
+        pyautogui.hotkey(_PRIMARY_MODIFIER, "f")
         time.sleep(0.4)
-        pyautogui.hotkey("ctrl", "a")
+        pyautogui.hotkey(_PRIMARY_MODIFIER, "a")
         pyautogui.write(receiver, interval=0.04)
+
         time.sleep(1.0)
 
         pyautogui.press("enter")
@@ -115,6 +118,7 @@ def _send_instagram(receiver: str, message: str) -> str:
     except Exception as e:
         return f"Instagram error: {e}"
 
+
 def _send_telegram(receiver: str, message: str) -> str:
     """Sends a Telegram message via Windows desktop app."""
     try:
@@ -123,9 +127,10 @@ def _send_telegram(receiver: str, message: str) -> str:
 
         time.sleep(1.5)
 
-        pyautogui.hotkey("ctrl", "f")
+        pyautogui.hotkey(_PRIMARY_MODIFIER, "f")
         time.sleep(0.4)
         pyautogui.write(receiver, interval=0.04)
+
         time.sleep(1.0)
         pyautogui.press("enter")
         time.sleep(0.8)

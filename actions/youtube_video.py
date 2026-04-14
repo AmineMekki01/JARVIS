@@ -48,97 +48,120 @@ def _get_api_key() -> str:
     with open(API_CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)["gemini_api_key"]
 
+
 def _get_default_browser_name() -> str | None:
     """
-    Registry'den varsayılan tarayıcının gerçek yürütülebilir adını döndürür.
-    Örn: "chrome.exe", "opera.exe", "firefox.exe", "brave.exe"
+    Returns the default browser executable name.
+    Cross-platform: checks common browser executables.
     """
-    try:
-        import winreg
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
-        )
-        prog_id = winreg.QueryValueEx(key, "ProgId")[0].lower()
-        winreg.CloseKey(key)
-
-        mapping = {
-            "chrome":   "chrome",
-            "firefox":  "firefox",
-            "opera":    "opera",
-            "brave":    "brave",
-            "vivaldi":  "vivaldi",
-            "msedge":   "msedge",
-            "edge":     "msedge",
+    system = platform.system()
+    
+    if system == "Windows":
+        browsers = ["chrome", "firefox", "opera", "brave", "vivaldi", "msedge", "edge"]
+        for browser in browsers:
+            import shutil
+            if shutil.which(browser) or shutil.which(browser + ".exe"):
+                return browser
+    else:
+        import shutil
+        mac_browsers = {
+            "Google Chrome": "Google Chrome",
+            "Firefox": "firefox",
+            "Safari": "Safari",
+            "Brave Browser": "Brave Browser",
+            "Opera": "Opera",
+            "Microsoft Edge": "Microsoft Edge",
         }
-        for key_str, exe in mapping.items():
-            if key_str in prog_id:
-                return exe
-    except Exception as e:
-        print(f"[YouTube] ⚠️ Browser detect failed: {e}")
+        return None
     return None
 
 
 def _get_default_browser_display_name() -> str:
     """
-    Windows Search'e yazılacak tarayıcı adını döndürür.
-    Registry → bilinen isimler → fallback "browser"
+    Returns a display name for the default browser.
+    Cross-platform fallback to common browsers.
     """
-    try:
-        import winreg
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
-        )
-        prog_id = winreg.QueryValueEx(key, "ProgId")[0].lower()
-        winreg.CloseKey(key)
-
-        display_names = {
-            "chrome":  "Google Chrome",
-            "firefox": "Firefox",
-            "opera":   "Opera",
-            "brave":   "Brave",
-            "vivaldi": "Vivaldi",
-            "msedge":  "Microsoft Edge",
-            "edge":    "Microsoft Edge",
-        }
-        for key_str, name in display_names.items():
-            if key_str in prog_id:
+    system = platform.system()
+    
+    if system == "Windows":
+        import shutil
+        browsers = [
+            ("chrome", "Google Chrome"),
+            ("firefox", "Firefox"),
+            ("opera", "Opera"),
+            ("brave", "Brave"),
+            ("vivaldi", "Vivaldi"),
+            ("msedge", "Microsoft Edge"),
+        ]
+        for exe, name in browsers:
+            if shutil.which(exe) or shutil.which(exe + ".exe"):
                 return name
-    except Exception:
-        pass
-    return "Google Chrome"
+        return "Google Chrome"
+    elif system == "Darwin":
+        return "Safari"
+    else:
+        return "Browser"
 
 
 def open_browser():
     """
-    Varsayılan tarayıcıyı açar.
-    Yöntem 1: subprocess ile direkt exe bul ve çalıştır (en hızlı).
-    Yöntem 2: Windows Search'te gerçek tarayıcı adını yaz.
+    Opens the default browser using platform-specific methods.
+    - macOS: Uses 'open' command
+    - Windows: Uses direct exe or Windows Search
+    - Linux: Uses xdg-open
     """
-    import shutil
+    system = platform.system()
+    
+    if system == "Darwin":
+        try:
+            subprocess.Popen(["open", "-a", "Safari"])
+            time.sleep(2.5)
+            print("[YouTube] ✅ Opened Safari via open command")
+            return
+        except Exception as e:
+            print(f"[YouTube] ⚠️ Safari open failed: {e}")
+            for browser in ["Google Chrome", "Firefox", "Brave Browser"]:
+                try:
+                    subprocess.run(["open", "-a", browser], check=True, timeout=3)
+                    time.sleep(2.5)
+                    print(f"[YouTube] ✅ Opened {browser}")
+                    return
+                except:
+                    continue
+    
+    elif system == "Windows":
+        import shutil
+        browser_exe = _get_default_browser_name()
 
-    browser_exe = _get_default_browser_name()
+        if browser_exe:
+            exe_path = shutil.which(browser_exe) or shutil.which(browser_exe + ".exe")
+            if exe_path:
+                try:
+                    subprocess.Popen([exe_path])
+                    time.sleep(2.5)
+                    print(f"[YouTube] ✅ Opened browser via exe: {exe_path}")
+                    return
+                except Exception as e:
+                    print(f"[YouTube] ⚠️ Direct exe failed: {e}")
 
-    if browser_exe:
-        exe_path = shutil.which(browser_exe) or shutil.which(browser_exe + ".exe")
-        if exe_path:
-            try:
-                subprocess.Popen([exe_path])
-                time.sleep(2.5)
-                print(f"[YouTube] ✅ Opened browser via exe: {exe_path}")
-                return
-            except Exception as e:
-                print(f"[YouTube] ⚠️ Direct exe failed: {e}")
+        display_name = _get_default_browser_display_name()
+        print(f"[YouTube] 🔍 Opening via Windows Search: '{display_name}'")
+        pyautogui.press("win")
+        time.sleep(0.5)
+        pyautogui.write(display_name, interval=0.04)
+        time.sleep(0.7)
+        pyautogui.press("enter")
+        time.sleep(2.5)
+    
+    else:
+        try:
+            subprocess.Popen(["xdg-open", "about:blank"])
+            time.sleep(2.5)
+            print("[YouTube] ✅ Opened browser via xdg-open")
+            return
+        except Exception as e:
+            print(f"[YouTube] ⚠️ xdg-open failed: {e}")
 
-    display_name = _get_default_browser_display_name()
-    print(f"[YouTube] 🔍 Opening via Windows Search: '{display_name}'")
-    pyautogui.press("win")
-    time.sleep(0.5)
-    pyautogui.write(display_name, interval=0.04)
-    time.sleep(0.7)
-    pyautogui.press("enter")
-    time.sleep(2.5)
 
 def find_video_thumbnails() -> list[tuple[int, int]]:
     try:
@@ -376,6 +399,7 @@ def _scrape_trending(region: str = "TR", max_results: int = 8) -> list[dict]:
         print(f"[YouTube] ⚠️ Trending scrape failed: {e}")
         return []
 
+
 def _handle_play(parameters: dict, player) -> str:
     query = parameters.get("query", "").strip()
     if not query:
@@ -389,7 +413,8 @@ def _handle_play(parameters: dict, player) -> str:
     search_query = query.replace(" ", "+")
     url = f"https://www.youtube.com/results?search_query={search_query}"
 
-    pyautogui.hotkey("ctrl", "l")
+    modifier = "command" if platform.system() == "Darwin" else "ctrl"
+    pyautogui.hotkey(modifier, "l")
     time.sleep(0.3)
     pyautogui.write(url, interval=0.02)
     pyautogui.press("enter")

@@ -1,10 +1,19 @@
-# 🤖 MARK XXXV
+# 🤖 MARK XXXV (macOS Fork)
+
+> **Fork Notice:** This is a fork of [Mark-XXXV](https://github.com/FatihMakes/Mark-XXXV) by [FatihMakes](https://www.youtube.com/@FatihMakes).  
+> Original project: [github.com/FatihMakes/Mark-XXXV](https://github.com/FatihMakes/Mark-XXXV)
+
+**This fork adds cross-platform support** — now works on **macOS** in addition to Windows, with full feature parity where technically feasible. Also will add more features to it. I'm mostly focused on macOS support, but it should work on Windows as well.
+
+
+Will be chaging the code and the features adapting it to my needs.
+---
 
 **Watch The Detailed Video To Set-up This Model**: https://www.youtube.com/watch?v=BhOsnGC_sAA
 
 ### Next-Generation Personal AI Assistant — By FatihMakes
 
-A real-time voice AI that can hear, see, understand, and control your Windows computer.
+A real-time voice AI that can hear, see, understand, and control your Windows or macOS computer.
 Local execution. Zero subscriptions (unless you want to increase requests via Google AI Studio).
 Built for intelligent automation.
 ---
@@ -54,20 +63,43 @@ System ready in minutes.
 ---
 ## 📋 Requirements
 
-* Windows 10 / 11
+* **Windows**: Windows 10 / 11
+* **macOS**: macOS 12 (Monterey) or later
 * Python 3.11 or 3.12
 * Microphone
 * Free [Gemini API key](https://aistudio.google.com/apikey)
+
+### Platform Notes
+
+* **Installation**: `pip install -r requirements.txt` works on all platforms — Windows-only packages are automatically skipped on macOS/Linux
+* **Steam integration**: Full support on Windows; macOS can launch Steam and update macOS-compatible games
+* **Epic Games**: Windows only (Epic Games Launcher is not available on macOS)
+* **Reminders**: Uses Windows Task Scheduler on Windows, launchd on macOS
+* **Browser control**: Works on all platforms using system default browser
+* **Keyboard shortcuts**: Automatically uses `Command` on macOS, `Ctrl` on Windows
+
+
+
 ---
+## 👥 Contributors
+
+- **Original Author:** [@FatihMakes](https://github.com/FatihMakes) — created Mark XXXV
+- **macOS Port:** [@AmineMekki01](https://github.com/AmineMekki01) — cross-platform compatibility, launchd reminders, AppleScript integration
+
+---
+
 ## ⚠️ License
 
 Personal and non-commercial use only.
 Licensed under **Creative Commons BY-NC 4.0**.
 
 Engineered by a 17-year-old building a real JARVIS-style assistant.
-⭐ Star the repository to support the project.
+⭐ Star the original repository to support the project: [FatihMakes/Mark-XXXV](https://github.com/FatihMakes/Mark-XXXV)
 ---
 If you have questions, issues, or just want to say hi:
 
-* YouTube: [@FatihMakes](https://www.youtube.com/@FatihMakes)
-* Instagram: [@fatihmakes](https://www.instagram.com/fatihmakes/)
+* **Original Author:**
+  * YouTube: [@FatihMakes](https://www.youtube.com/@FatihMakes)
+  * Instagram: [@fatihmakes](https://www.instagram.com/fatihmakes/)
+* **Fork Maintainer:**
+  * GitHub: [@AmineMekki01](https://github.com/AmineMekki01)
